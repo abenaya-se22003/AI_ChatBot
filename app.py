@@ -1,18 +1,22 @@
 import os
-import google.generativeai as genai
 from dotenv import load_dotenv
+from google import genai
+
 
 load_dotenv()
-
 api_key = os.getenv("GEMINI_API_KEY")
 
-if not api_key:
-    print("Error: GEMINI_API_KEY not found in environment variables.")
-else:
-    genai.configure(api_key=api_key)
 
-    model = genai.GenerativeModel("gemini-1.5-pro")
+client = genai.Client(api_key=api_key)
 
-    response = model.generate_content("What is the capital of Sri Lanka?")
-    print(response.text)
+try:
     
+    response = client.models.generate_content(
+        model="gemini-2.5-flash", 
+        contents="what is genarative AI?"
+    )
+    
+    print("AI Chatbot:", response.text)
+
+except Exception as e:
+    print(f"Error : {e}")
