@@ -9,7 +9,7 @@ client = genai.Client(api_key=api_key)
 print("--- Start the AI Chatbot  ---")
 
 while True:
-    user_input = input("user: ") # පරිශීලකයාගෙන් ප්‍රශ්නය ලබා ගැනීම
+    user_input = input("user: ") 
     
     if user_input.lower() == 'exit':
         print("AI Chatbot: Bye Bye!")
