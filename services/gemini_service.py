@@ -16,5 +16,14 @@ def init_chat():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+def new_chat():
+    if "chat_session" in st.session_state:
+        del st.session_state.chat_session
+
+    if "messages" in st.session_state:
+        st.session_state.messages = []
+
+    st.rerun()
+
 def send_message(prompt):
     return st.session_state.chat_session.send_message(prompt)
