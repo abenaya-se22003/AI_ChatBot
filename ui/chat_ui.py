@@ -1,11 +1,16 @@
 import streamlit as st
-from services.gemini_service import send_message, init_chat, new_chat
+from services.gemini_service import send_message, new_chat
+from services.db_service import save_message, load_messages
 
-# 🔹 New Chat Function
-
+# 🔹 Demo user (later login system use කරන්න)
+USER_ID = "user_1"
 
 
 def render_chat_ui():
+    # 🔹 Load chat history from DB (only first time)
+    if "messages" not in st.session_state:
+        st.session_state.messages = load_messages(USER_ID)
+
     # Header with button
     col1, col2 = st.columns([8, 2])
 
@@ -15,36 +20,43 @@ def render_chat_ui():
     with col2:
         if st.button("🆕 New Chat"):
             new_chat()
+            st.session_state.messages = []   # 🔥 clear UI
 
-    # Show history
+    # 🔹 Show history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Input
+    # 🔹 Input
     prompt = st.chat_input("Type your message...")
 
     if prompt:
         # Show user message
         st.chat_message("user").markdown(prompt)
+
         st.session_state.messages.append({
             "role": "user",
             "content": prompt
         })
 
+        # 🔥 Save user message to DB
+        save_message(USER_ID, "user", prompt)
+
         try:
-            # Send message to Gemini
+            # Send to Gemini
             response = send_message(prompt)
 
             # Show AI response
             with st.chat_message("assistant"):
                 st.markdown(response.text)
 
-            # Save response
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": response.text
             })
+
+            # 🔥 Save AI response to DB
+            save_message(USER_ID, "assistant", response.text)
 
         except Exception as e:
             st.error(f"Error: {e}")
