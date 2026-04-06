@@ -1,22 +1,19 @@
-import os
-from dotenv import load_dotenv
-from google import genai
+import streamlit as st
+from config.settings import API_KEY
+from services.gemini_service import init_client, init_chat
+from ui.chat_ui import render_chat_ui
 
+st.set_page_config(page_title="Gemini AI Assistant", layout="centered")
 
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
+def main():
+    if not API_KEY:
+        st.error("API Key not found!")
+        return
 
+    init_client(API_KEY)
+    init_chat()
 
-client = genai.Client(api_key=api_key)
+    render_chat_ui()
 
-try:
-    
-    response = client.models.generate_content(
-        model="gemini-2.5-flash", 
-        contents="what is genarative AI?"
-    )
-    
-    print("AI Chatbot:", response.text)
-
-except Exception as e:
-    print(f"Error : {e}")
+if __name__ == "__main__":
+    main()
