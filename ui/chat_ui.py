@@ -1,4 +1,5 @@
 import streamlit as st
+from google.genai import errors
 from services.gemini_service import send_message, new_chat
 from services.db_service import save_message, load_messages
 
@@ -22,6 +23,10 @@ def render_chat_ui():
             new_chat()
             st.session_state.messages = []   # 🔥 clear UI
 
+    # Show current model info
+    if "current_model" in st.session_state:
+        st.caption(f"📡 Using model: `{st.session_state.current_model}`")
+
     # 🔹 Show history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -43,8 +48,9 @@ def render_chat_ui():
         save_message(USER_ID, "user", prompt)
 
         try:
-            # Send to Gemini
-            response = send_message(prompt)
+            # Send to Gemini (with automatic fallback)
+            with st.spinner("Thinking... (will try backup models if needed)"):
+                response = send_message(prompt)
 
             # Show AI response
             with st.chat_message("assistant"):
@@ -59,4 +65,5 @@ def render_chat_ui():
             save_message(USER_ID, "assistant", response.text)
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"⚠️ {e}")
+            st.info("💡 Tip: Wait 1-2 minutes and try again, or click '🆕 New Chat' to start fresh.")
