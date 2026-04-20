@@ -66,6 +66,25 @@ def _try_send_with_retry(prompt, max_retries=2):
     raise last_error
 
 
+def _try_send_with_retry_stream(prompt, max_retries=2):
+    """Try sending on the current session and return a stream. Retry only for 503 (not 429)."""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return st.session_state.chat_session.send_message_stream(prompt)
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            if _is_retryable_error(error_str):
+                wait_time = 2 * (attempt + 1)
+                print(f"[{st.session_state.current_model}] Retry {attempt + 1}/{max_retries} in {wait_time}s: {e}")
+                time.sleep(wait_time)
+            else:
+                # 429, auth errors, etc — don't retry same model
+                raise
+    raise last_error
+
+
 def _switch_to_model(model_name):
     """Create a new chat session for the given model, replaying history."""
     st.session_state.chat_session = st.session_state.client.chats.create(
@@ -112,6 +131,52 @@ def send_message(prompt):
             response = _try_send_with_retry(prompt)
             print(f"✅ Response from: {st.session_state.current_model}")
             return response
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            if _is_switchable_error(error_str):
+                print(f"❌ Model '{model}' failed ({error_str[:60]}...). Trying next...")
+                continue
+            else:
+                # Hard error (auth, invalid request, etc) — don't try other models
+                raise
+
+    # All models exhausted
+    raise Exception(
+        "All available AI models have hit their quota or are unavailable.\n\n"
+        "Free tier limits: 20 requests/day per model.\n"
+        "Please wait until tomorrow, or upgrade your Google AI plan."
+    )
+
+
+def send_message_stream(prompt):
+    """Send a message and return a stream, with automatic model fallback on 429 or 503."""
+    all_models = [MODEL_NAME] + [m for m in FALLBACK_MODELS if m != MODEL_NAME]
+
+    # Make sure we start from the current active model
+    if "current_model" in st.session_state:
+        current = st.session_state.current_model
+        # Move current model to front if it's a fallback
+        if current in all_models:
+            all_models = [current] + [m for m in all_models if m != current]
+
+    last_error = None
+    for model in all_models:
+        # Switch to this model if it's not already active
+        if st.session_state.get("current_model") != model:
+            print(f"🔄 Switching to model: {model}")
+            try:
+                _switch_to_model(model)
+            except Exception as e:
+                print(f"Failed to switch to {model}: {e}")
+                last_error = e
+                continue
+
+        # Try sending
+        try:
+            stream = _try_send_with_retry_stream(prompt)
+            print(f"✅ Stream Response from: {st.session_state.current_model}")
+            return stream
         except Exception as e:
             last_error = e
             error_str = str(e)

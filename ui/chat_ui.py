@@ -61,21 +61,25 @@ def render_chat_ui():
             update_session_title(session_id, title)
 
         try:
-            # Send to Gemini (with automatic fallback)
-            with st.spinner("Thinking..."):
-                response = send_message(prompt)
-
-            # Show AI response
+            # Stream the AI response
+            from services.gemini_service import send_message_stream
+            
             with st.chat_message("assistant"):
-                st.markdown(response.text)
+                def generate_stream():
+                    stream_response = send_message_stream(prompt)
+                    for chunk in stream_response:
+                        if chunk.text:
+                            yield chunk.text
+
+                full_response = st.write_stream(generate_stream())
 
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": response.text
+                "content": full_response
             })
 
             # 🔥 Save AI response to DB
-            save_message(USER_ID, "assistant", response.text, session_id)
+            save_message(USER_ID, "assistant", full_response, session_id)
 
         except Exception as e:
             st.error(f"⚠️ {e}")
