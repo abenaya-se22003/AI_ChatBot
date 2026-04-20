@@ -1,0 +1,92 @@
+/* Gemini AI Assistant - Custom Styles */
+
+/* Sidebar Styling */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 100%) !important;
+    border-right: 1px solid rgba(108, 99, 255, 0.15) !important;
+}
+
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.08) !important;
+    margin: 0.8rem 0 !important;
+}
+
+/* Sidebar Buttons */
+[data-testid="stSidebar"] button {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+    color: #c9d1d9 !important;
+    font-size: 0.85rem !important;
+    text-align: left !important;
+    transition: all 0.2s ease !important;
+    padding: 0.5rem 0.75rem !important;
+}
+
+[data-testid="stSidebar"] button:hover {
+    background: rgba(108, 99, 255, 0.15) !important;
+    border-color: rgba(108, 99, 255, 0.4) !important;
+    color: #fff !important;
+    transform: translateX(2px);
+}
+
+/* Chat Messages */
+[data-testid="stChatMessage"] {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 16px !important;
+    padding: 1rem 1.25rem !important;
+    margin-bottom: 0.75rem !important;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chat Input */
+[data-testid="stChatInput"] textarea {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(108, 99, 255, 0.25) !important;
+    border-radius: 14px !important;
+    color: #e6edf3 !important;
+    font-size: 0.95rem !important;
+    transition: border-color 0.2s ease !important;
+}
+
+[data-testid="stChatInput"] textarea:focus {
+    border-color: rgba(108, 99, 255, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.1) !important;
+}
+
+/* Delete button small */
+button[kind="secondary"] {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.75rem !important;
+}
+
+/* Scrollbar */
+[data-testid="stSidebar"] ::-webkit-scrollbar {
+    width: 4px;
+}
+
+[data-testid="stSidebar"] ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+    background: rgba(108, 99, 255, 0.3);
+    border-radius: 4px;
+}
+
+/* Main area background */
+.stApp {
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%) !important;
+}
+
+/* Error/Info boxes */
+[data-testid="stAlert"] {
+    border-radius: 12px !important;
+    border: none !important;
+}

@@ -4,9 +4,25 @@ from google import genai
 from google.genai import errors
 from config.settings import MODEL_NAME, FALLBACK_MODELS, SYSTEM_INSTRUCTION
 
+
+def _is_switchable_error(error_str):
+    """Returns True if the error means we should switch models (not retry same one)."""
+    return any(code in error_str for code in [
+        "503", "UNAVAILABLE",         # server overloaded
+        "429", "RESOURCE_EXHAUSTED",  # quota exceeded
+        "404", "NOT_FOUND",           # model not available in this API version
+    ])
+
+
+def _is_retryable_error(error_str):
+    """Returns True if a short wait + retry on SAME model might help (only 503)."""
+    return "503" in error_str or "UNAVAILABLE" in error_str
+
+
 def init_client(api_key):
     if "client" not in st.session_state:
         st.session_state.client = genai.Client(api_key=api_key)
+
 
 def init_chat():
     if "chat_session" not in st.session_state:
@@ -19,8 +35,8 @@ def init_chat():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+
 def new_chat():
-    # Reset chat session and model back to primary
     for key in ["chat_session", "current_model"]:
         if key in st.session_state:
             del st.session_state[key]
@@ -30,8 +46,9 @@ def new_chat():
 
     st.rerun()
 
-def _try_send(prompt, max_retries=3):
-    """Try sending on the current chat session with retries."""
+
+def _try_send_with_retry(prompt, max_retries=2):
+    """Try sending on the current session. Retry only for 503 (not 429)."""
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -39,63 +56,75 @@ def _try_send(prompt, max_retries=3):
         except Exception as e:
             last_error = e
             error_str = str(e)
-            # Only retry on 503 errors
-            if "503" in error_str or "UNAVAILABLE" in error_str:
-                wait_time = 2 * (attempt + 1)  # 2s, 4s, 6s
-                print(f"[{st.session_state.current_model}] Retry {attempt+1}/{max_retries}: {e}")
+            if _is_retryable_error(error_str):
+                wait_time = 2 * (attempt + 1)
+                print(f"[{st.session_state.current_model}] Retry {attempt + 1}/{max_retries} in {wait_time}s: {e}")
                 time.sleep(wait_time)
             else:
-                raise  # Non-503 errors should not be retried
+                # 429, auth errors, etc — don't retry same model
+                raise
     raise last_error
 
+
+def _switch_to_model(model_name):
+    """Create a new chat session for the given model, replaying history."""
+    st.session_state.chat_session = st.session_state.client.chats.create(
+        model=model_name,
+        config={"system_instruction": SYSTEM_INSTRUCTION}
+    )
+    st.session_state.current_model = model_name
+
+    # Replay existing conversation so context is preserved
+    history = st.session_state.get("messages", [])
+    for msg in history:
+        if msg["role"] == "user":
+            try:
+                st.session_state.chat_session.send_message(msg["content"])
+            except Exception:
+                pass  # Best-effort context replay
+
+
 def send_message(prompt):
-    """Send message with automatic fallback to alternative models."""
+    """Send a message with automatic model fallback on 429 or 503."""
+    all_models = [MODEL_NAME] + [m for m in FALLBACK_MODELS if m != MODEL_NAME]
 
-    # Step 1: Try the current model
-    try:
-        return _try_send(prompt)
-    except Exception as primary_error:
-        error_str = str(primary_error)
-        if "503" not in error_str and "UNAVAILABLE" not in error_str:
-            raise  # Not a capacity issue, re-raise immediately
+    # Make sure we start from the current active model
+    if "current_model" in st.session_state:
+        current = st.session_state.current_model
+        # Move current model to front if it's a fallback
+        if current in all_models:
+            all_models = [current] + [m for m in all_models if m != current]
 
-        print(f"⚠️ Primary model '{st.session_state.current_model}' is unavailable. Trying fallbacks...")
+    last_error = None
+    for model in all_models:
+        # Switch to this model if it's not already active
+        if st.session_state.get("current_model") != model:
+            print(f"🔄 Switching to model: {model}")
+            try:
+                _switch_to_model(model)
+            except Exception as e:
+                print(f"Failed to switch to {model}: {e}")
+                last_error = e
+                continue
 
-    # Step 2: Try each fallback model
-    for fallback_model in FALLBACK_MODELS:
-        if fallback_model == st.session_state.current_model:
-            continue  # Skip if it's the same as what we already tried
-
+        # Try sending
         try:
-            print(f"🔄 Switching to fallback model: {fallback_model}")
-
-            # Create a new chat session with the fallback model
-            st.session_state.chat_session = st.session_state.client.chats.create(
-                model=fallback_model,
-                config={"system_instruction": SYSTEM_INSTRUCTION}
-            )
-            st.session_state.current_model = fallback_model
-
-            # Replay previous messages to maintain context
-            for msg in st.session_state.messages:
-                if msg["role"] == "user":
-                    st.session_state.chat_session.send_message(msg["content"])
-
-            # Now send the actual new message
-            response = st.session_state.chat_session.send_message(prompt)
-            print(f"✅ Successfully using fallback model: {fallback_model}")
+            response = _try_send_with_retry(prompt)
+            print(f"✅ Response from: {st.session_state.current_model}")
             return response
-
-        except Exception as fallback_error:
-            error_str = str(fallback_error)
-            if "503" in error_str or "UNAVAILABLE" in error_str:
-                print(f"❌ Fallback model '{fallback_model}' also unavailable.")
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            if _is_switchable_error(error_str):
+                print(f"❌ Model '{model}' failed ({error_str[:60]}...). Trying next...")
                 continue
             else:
-                raise  # Non-503 error on fallback
+                # Hard error (auth, invalid request, etc) — don't try other models
+                raise
 
-    # Step 3: All models failed
+    # All models exhausted
     raise Exception(
-        "All AI models are currently experiencing high demand. "
-        "Please wait a few minutes and try again."
+        "All available AI models have hit their quota or are unavailable.\n\n"
+        "Free tier limits: 20 requests/day per model.\n"
+        "Please wait until tomorrow, or upgrade your Google AI plan."
     )
