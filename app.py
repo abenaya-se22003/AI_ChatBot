@@ -1,4 +1,5 @@
 import streamlit as st
+from pathlib import Path
 from config.settings import API_KEY
 from services.gemini_service import init_client, init_chat
 from services.db_service import init_db
@@ -13,86 +14,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inline CSS — avoids Windows encoding issues with external CSS files
+
 def load_css():
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    * { font-family: 'Inter', sans-serif; }
-
-    /* ── Sidebar ── */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1117 0%, #161b22 100%) !important;
-        border-right: 1px solid rgba(108,99,255,0.2) !important;
-    }
-    [data-testid="stSidebar"] hr {
-        border-color: rgba(255,255,255,0.07) !important;
-        margin: 0.6rem 0 !important;
-    }
-
-    /* Sidebar session buttons */
-    [data-testid="stSidebar"] button {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(255,255,255,0.08) !important;
-        border-radius: 10px !important;
-        color: #c9d1d9 !important;
-        font-size: 0.83rem !important;
-        text-align: left !important;
-        transition: all 0.18s ease !important;
-    }
-    [data-testid="stSidebar"] button:hover {
-        background: rgba(108,99,255,0.18) !important;
-        border-color: rgba(108,99,255,0.45) !important;
-        color: #fff !important;
-        transform: translateX(3px);
-    }
-
-    /* ── Main background ── */
-    .stApp {
-        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%) !important;
-    }
-
-    /* ── Chat messages ── */
-    [data-testid="stChatMessage"] {
-        background: rgba(255,255,255,0.025) !important;
-        border: 1px solid rgba(255,255,255,0.07) !important;
-        border-radius: 16px !important;
-        padding: 1rem 1.2rem !important;
-        margin-bottom: 0.7rem !important;
-        animation: fadeSlide 0.3s ease;
-    }
-    @keyframes fadeSlide {
-        from { opacity: 0; transform: translateY(6px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Chat input box ── */
-    [data-testid="stChatInput"] textarea {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(108,99,255,0.3) !important;
-        border-radius: 14px !important;
-        color: #e6edf3 !important;
-    }
-    [data-testid="stChatInput"] textarea:focus {
-        border-color: rgba(108,99,255,0.65) !important;
-        box-shadow: 0 0 0 3px rgba(108,99,255,0.12) !important;
-    }
-
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb {
-        background: rgba(108,99,255,0.35);
-        border-radius: 4px;
-    }
-
-    /* ── Alerts ── */
-    [data-testid="stAlert"] {
-        border-radius: 12px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    css_path = Path(__file__).parent / "ui" / "style.css"
+    css = css_path.read_text(encoding="utf-8")
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
 def main():
