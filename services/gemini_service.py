@@ -3,6 +3,9 @@ import time
 from google import genai
 from config.settings import MODEL_NAME, FALLBACK_MODELS, SYSTEM_INSTRUCTION
 
+# Only replay this many recent messages when switching models
+MAX_REPLAY_MESSAGES = 10
+
 
 def _is_switchable_error(error_str):
     """Check if we should try a different model (503, 429, 404)."""
@@ -42,21 +45,23 @@ def _try_send_stream(prompt, max_retries=2):
         except Exception as e:
             last_error = e
             if _is_retryable_error(str(e)):
-                time.sleep(2 * (attempt + 1))
+                time.sleep(0.5)
             else:
                 raise
     raise last_error
 
 
 def _switch_to_model(model_name):
-    """Create a new chat session on a different model, replaying history."""
+    """Create a new chat session on a different model, replaying recent history."""
     st.session_state.chat_session = st.session_state.client.chats.create(
         model=model_name,
         config={"system_instruction": SYSTEM_INSTRUCTION}
     )
     st.session_state.current_model = model_name
 
-    for msg in st.session_state.get("messages", []):
+    # Only replay the last N messages to keep the switch fast
+    recent = st.session_state.get("messages", [])[-MAX_REPLAY_MESSAGES:]
+    for msg in recent:
         if msg["role"] == "user":
             try:
                 st.session_state.chat_session.send_message(msg["content"])
@@ -66,12 +71,11 @@ def _switch_to_model(model_name):
 
 def send_message_stream(prompt):
     """Send a message and return a stream, with automatic model fallback."""
-    all_models = [MODEL_NAME] + [m for m in FALLBACK_MODELS if m != MODEL_NAME]
-
-    if "current_model" in st.session_state:
-        current = st.session_state.current_model
-        if current in all_models:
-            all_models = [current] + [m for m in all_models if m != current]
+    current = st.session_state.get("current_model", MODEL_NAME)
+    # Build ordered model list: current model first, then remaining fallbacks
+    all_models = [current] + [
+        m for m in [MODEL_NAME] + FALLBACK_MODELS if m != current
+    ]
 
     last_error = None
     for model in all_models:
@@ -83,14 +87,12 @@ def send_message_stream(prompt):
                 continue
 
         try:
-            stream = _try_send_stream(prompt)
-            return stream
+            return _try_send_stream(prompt)
         except Exception as e:
             last_error = e
             if _is_switchable_error(str(e)):
                 continue
-            else:
-                raise
+            raise
 
     raise Exception(
         "All AI models are unavailable or quota exhausted.\n"
