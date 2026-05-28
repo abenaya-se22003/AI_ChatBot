@@ -2,6 +2,7 @@ import streamlit as st
 import time
 from google import genai
 from config.settings import MODEL_NAME, FALLBACK_MODELS, SYSTEM_INSTRUCTION
+from services.rag_service import search_documents
 
 # Only replay this many recent messages when switching models
 MAX_REPLAY_MESSAGES = 10
@@ -98,3 +99,51 @@ def send_message_stream(prompt):
         "All AI models are unavailable or quota exhausted.\n"
         "Please wait and try again, or upgrade your Google AI plan."
     )
+
+def send_message_stream_rag(prompt):
+    """Send a message using RAG context and return a stream, with automatic model fallback."""
+    # 🔍 Search relevant docs
+    docs = search_documents(prompt)
+
+    # Combine context
+    context = "\n".join(docs)
+
+    # Final AI prompt
+    final_prompt = f"""
+    Answer using the context below.
+
+    Context:
+    {context}
+
+    User Question:
+    {prompt}
+    """
+
+    return send_message_stream(final_prompt)
+
+
+def send_message_rag(prompt):
+
+    # 🔍 Search relevant docs
+    docs = search_documents(prompt)
+
+    # Combine context
+    context = "\n".join(docs)
+
+    # Final AI prompt
+    final_prompt = f"""
+    Answer using the context below.
+
+    Context:
+    {context}
+
+    User Question:
+    {prompt}
+    """
+
+    # Send to Gemini
+    response = st.session_state.chat_session.send_message(
+        final_prompt
+    )
+
+    return response

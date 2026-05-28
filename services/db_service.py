@@ -8,6 +8,17 @@ load_dotenv()
 DB_URL = os.getenv("DATABASE_URL")
 
 
+def get_connection():
+    """Return a raw psycopg2 connection. Caller is responsible for commit/close. Retries up to 5 times."""
+    for attempt in range(5):
+        try:
+            return psycopg2.connect(DB_URL, connect_timeout=10, sslmode="require")
+        except Exception as e:
+            if attempt == 4:
+                raise Exception("Database connection failed after retries")
+            time.sleep(2)
+
+
 @contextmanager
 def _get_cursor():
     """Get a DB cursor with auto-close. Retries connection up to 5 times."""
