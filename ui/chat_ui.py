@@ -43,7 +43,7 @@ def render_chat_ui():
             st.markdown(msg["content"])
 
     # 🔹 Chat input
-    prompt = st.chat_input("Ask something from your AI knowledge base...")
+    prompt = st.chat_input("Ask about the CV or any general question...")
 
     if prompt:
 
@@ -149,12 +149,12 @@ def _render_welcome():
 
         st.markdown(
             """
-            This chatbot now supports:
+            This chatbot supports **Hybrid AI**:
 
-            ✅ RAG Architecture  
-            ✅ AI Knowledge Base  
-            ✅ Previous Chat History  
-            ✅ PostgreSQL Vector Search  
+            ✅ **CV/Document Questions** → Answers from your uploaded documents  
+            ✅ **General Knowledge** → Answers from Gemini AI  
+            ✅ **Smart Routing** → Automatically detects which source to use  
+            ✅ **Chat History** → Previous conversations saved  
             """
         )
 
@@ -163,13 +163,13 @@ def _render_welcome():
         c1, c2, c3 = st.columns(3)
 
         c1.info(
-            "📄 Ask questions from uploaded documents"
+            "📄 Ask about skills, experience from your CV"
         )
 
         c2.info(
-            "🧠 AI searches your database before answering"
+            "🌍 Ask general questions like capitals, facts"
         )
 
         c3.info(
-            "⚡ Fast streaming responses with Gemini"
+            "🧠 AI smartly picks the best source to answer"
         )
